@@ -1,0 +1,71 @@
+------------------------------// Project 1, "Value vs volume" //-----------------------------
+
+/*1
+     Value VS volume monthly change throught years */
+
+WITH value_data AS(
+    SELECT 
+        EXTRACT(YEAR FROM time_periode::Date)AS year,
+        TRIM(TO_CHAR(time_periode::Date, 'month'))AS month,
+        ROUND(AVG(value),2)AS Value_sales
+    FROM value_stats
+    GROUP BY  year, month
+    
+    )
+    SELECT vd.year, 
+        vd.month,
+        value_sales,
+        volume_sales
+    FROM value_data vd 
+    LEFT JOIN (
+        SELECT  
+    EXTRACT(YEAR FROM time_periode::Date)AS year,
+    TRIM(TO_CHAR(time_periode::date, 'month'))AS month,
+    ROUND(AVG(value),2) AS volume_sales
+    
+    FROM volume_stats vs
+    WHERE value IS NOT NULL
+    GROUP BY year, month
+    ORDER BY year DESC,volume_sales)AS vs 
+    ON vd.month = vs.month AND vd.year =vs.year
+    
+ORDER BY
+        vd.year;
+
+
+----------------
+/*-2-- Yearly top category Value VS volume*/
+
+WITH volume_data AS(
+    SELECT DISTINCT ON (EXTRACT(YEAR FROM time_periode::date))
+                        EXTRACT(YEAR FROM time_periode::date)AS Year,
+                        vs.code AS volume_category,
+                        value AS volume_value,
+                        agg AS volume_agg,
+                        description AS volume_dicreption
+            FROM volume_stats vs
+        LEFT JOIN volume_coding vc ON vs.code = vc.code
+            WHERE value IS NOT NULL
+            ORDER BY year, volume_value DESC),
+value_data AS(
+    SELECT DISTINCT ON (EXTRACT(YEAR FROM time_periode::date))
+                EXTRACT(YEAR FROM time_periode::date)AS Year,
+                vs.code AS value_category,
+                value AS sales_value,
+                agg AS value_agg,    
+                description AS value_discreption
+            FROM value_stats vs
+        LEFT JOIN value_coding vc ON vs.code = vc.code
+            WHERE value IS NOT NULL
+            ORDER BY year, sales_value DESC)
+    SELECT
+            vd.year,volume_category,
+            volume_value,volume_agg,
+            volume_dicreption,
+            value_category,
+            sales_value,value_agg, 
+            value_discreption
+    FROM volume_data vd LEFT JOIN value_data vv 
+        ON vd.year = vv.year
+        ORDER BY
+           year, volume_value ,sales_value
