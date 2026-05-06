@@ -1,3 +1,6 @@
+
+----*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*****---
+------------------------------------------------------------------------------------------
 ------------------------------// Project 1, "Value vs volume" //-----------------------------
 
 /*1
@@ -69,3 +72,148 @@ value_data AS(
         ON vd.year = vv.year
         ORDER BY
            year, volume_value ,sales_value
+
+----*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*****---
+------------------------------------------------------------------------------------------
+----------------------// Project 2, "Large Business VS small Business" //------------------
+
+/*1
+    Small busnisses VS large Businesses for sales value */
+
+SELECT
+    time_periode AS date,
+    vs.code AS category,
+    value,
+    description,
+    agg,
+    split_part(agg, '-', 2) AS b_type
+FROM value_stats vs
+    LEFT JOIN value_coding vc 
+      ON vs.code = vc.code
+WHERE description LIKE '%Large%' OR description LIKE '%Small%' AND vs.value is NOT NULL
+    ORDER BY date;
+
+
+----/*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*****---
+------------------------------------------------------------------------------------------
+-----------/*/ Project 3, "Is there any Change in Consumbtion interest" /*/------------------
+
+    /*1
+        from the prospective of volume of sales */
+
+WITH categories_volume AS(
+    SELECT 
+        DISTINCT(description),
+        split_part(agg, '-', 1) AS category,
+        code
+        FROM volume_coding)
+    SELECT DISTINCT ON(EXTRACT(YEAR FROM time_periode::date))
+        EXTRACT(YEAR FROM time_periode::date) AS date,
+        vs.code,
+        value,
+     category
+   ,CASE
+        WHEN category = 'Agg 47.7' THEN 'non-food industry'
+        WHEN category = 'Agg 12' THEN 'food industry'
+        WHEN category = 'Agg 21X' THEN 'non-food industry'
+        WHEN category = 'Agg 47.6' THEN 'non-food industry'
+        WHEN category = 'Agg 47.4' THEN 'non-food industry'
+        WHEN category = 'Agg 47.2' THEN 'food industry'
+        WHEN category = 'Agg 1' THEN 'food industry'
+        WHEN category = 'Agg1' THEN 'food industry'
+        WHEN category = 'Agg 47.9' THEN 'non-food industry'
+        WHEN category = 'Agg 47.1' THEN 'food industry'
+        WHEN category = 'Agg 47.3' THEN 'non-food industry'
+        WHEN category = 'Agg 47.5' THEN 'non-food industry'
+    END AS industry_type,
+    description
+    FROM categories_volume cv 
+    LEFT JOIN volume_stats vs 
+    ON vs.code=cv.code
+    WHERE category <> 'none' AND category <> 'Agg 21' AND value IS NOT NULL
+    ORDER BY date, value DESC
+
+
+    /*2
+        from the prospective of value of sales*/
+
+WITH categories_value AS(
+    SELECT 
+        DISTINCT(description),
+        code,
+        split_part(agg, '-', 1) AS category
+    FROM value_coding)
+    SELECT DISTINCT ON(EXTRACT(YEAR FROM time_periode::date))
+        EXTRACT(YEAR FROM time_periode::date) AS date,
+        vs.code,
+        value,
+        category,
+    CASE
+        WHEN category = 'Agg 47.7' THEN 'non-food industry'
+        WHEN category = 'Agg 12' THEN 'food industry'
+        WHEN category = 'Agg 21X' THEN 'non-food industry'
+        WHEN category = 'Agg 47.6' THEN 'non-food industry'
+        WHEN category = 'Agg 47.4' THEN 'non-food industry'
+        WHEN category = 'Agg 47.2' THEN 'food industry'
+        WHEN category = 'Agg 1' THEN 'food industry'
+        WHEN category = 'Agg1' THEN 'food industry'
+        WHEN category = 'Agg 47.9' THEN 'non-food industry'
+        WHEN category = 'Agg 47.1' THEN 'food industry'
+        WHEN category = 'Agg 47.3' THEN 'non-food industry'
+        WHEN category = 'Agg 47.5' THEN 'non-food industry'
+    END AS industry_type,
+    description
+    FROM categories_value cv LEFT JOIN value_stats vs
+    ON vs.code = cv.code 
+    WHERE category <> 'none' AND category <> 'Agg 21' AND value IS NOT NULL
+    ORDER BY date, value DESC
+
+----/*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*****---
+------------------------------------------------------------------------------------------
+-----------/*/ Project 4, "Is this numbers were effected by seasonality or we can count on it??" /*/------------------
+/*1
+    regarding the change of the sales value*/
+
+WITH monthly_data AS(
+        SELECT 
+            EXTRACT(YEAR FROM time_periode::date) AS year,
+            TRIM(TO_CHAR(time_periode::date, 'MONTH'))AS month,
+            ROUND(AVG(value))AS monthly_value
+        FROM value_stats
+        GROUP BY year, month
+        ORDER BY monthly_value, year DESC
+)
+    SELECT
+      year,
+      month,
+      monthly_value,
+      Round(monthly_value /
+      AVG(monthly_value) OVER(
+        PARTITION BY month
+        ),2)AS seasonaly_adjusted
+    FROM monthly_data
+    ORDER BY year DESC, month
+
+/*2
+    reagrding the change in the sales volume*/
+
+WITH monthly_data AS(
+        SELECT 
+            EXTRACT(YEAR FROM time_periode::date) AS year,
+            TRIM(TO_CHAR(time_periode::date, 'MONTH'))AS month,
+            ROUND(AVG(value))AS monthly_value
+        FROM volume_stats
+        WHERE value IS NOT NULL
+        GROUP BY year, month
+        ORDER BY monthly_value, year DESC
+        )
+    SELECT
+      year,
+      month,
+      monthly_value,
+      Round(monthly_value /
+      AVG(monthly_value) OVER(
+        PARTITION BY month
+        ),2)AS seasonaly_adjusted
+    FROM monthly_data
+    ORDER BY year DESC, month
